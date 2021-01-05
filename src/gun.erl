@@ -658,13 +658,27 @@ make_stream_ref(Tunnel) -> Tunnel ++ [make_ref()].
 normalize_headers([]) ->
 	[];
 normalize_headers([{Name, Value}|Tail]) when is_binary(Name) ->
-	[{string:lowercase(Name), Value}|normalize_headers(Tail)];
+	[{to_lower_binary(Name), Value}|normalize_headers(Tail)];
 normalize_headers([{Name, Value}|Tail]) when is_list(Name) ->
-	[{string:lowercase(unicode:characters_to_binary(Name)), Value}|normalize_headers(Tail)];
+	[{to_lower_binary(unicode:characters_to_binary(Name)), Value}|normalize_headers(Tail)];
 normalize_headers([{Name, Value}|Tail]) when is_atom(Name) ->
-	[{string:lowercase(atom_to_binary(Name, latin1)), Value}|normalize_headers(Tail)];
+	[{to_lower_binary(atom_to_binary(Name, latin1)), Value}|normalize_headers(Tail)];
 normalize_headers(Headers) when is_map(Headers) ->
 	normalize_headers(maps:to_list(Headers)).
+
+%% begin hacks for 19.3
+-spec to_lower_binary(binary()) -> binary().
+to_lower_binary(Bin) when is_binary(Bin) -> << <<(to_lower_char(B))>> || <<B>> <= Bin>>.
+
+-spec to_lower_char(char()) -> char().
+to_lower_char(C) when is_integer(C), $A =< C, C =< $Z -> C + 32;
+%% Converts Latin capital letters to lowercase, skipping 16#D7 (extended ASCII 215) "multiplication sign: x"
+to_lower_char(C) when is_integer(C), 16#C0 =< C, C =< 16#D6 -> C + 32; % from string:to_lower
+to_lower_char(C) when is_integer(C), 16#D8 =< C, C =< 16#DE -> C + 32; % so we only loop once
+to_lower_char(C) -> C.
+
+%% end hacks for 19.3
+
 
 %% Streaming data.
 
